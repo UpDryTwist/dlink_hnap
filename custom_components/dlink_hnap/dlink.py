@@ -225,7 +225,7 @@ class NanoSOAPClient:
         self.session = session or aiohttp.ClientSession(loop=loop)
         self.headers = {}
 
-    def _generate_request_xml(self, method, **kwargs):
+    def _generate_request_xml_old(self, method, **kwargs):
         body = ET.Element("soap:Body")
         action = ET.Element(method, self.ACTION_NS)
         body.append(action)
@@ -243,6 +243,27 @@ class NanoSOAPClient:
         tree.write(f, encoding="utf-8", xml_declaration=True)
 
         return f.getvalue().decode("utf-8")
+
+    def _generate_request_xml(self, method, **kwargs):
+
+        parameters = ""
+        for param, value in kwargs.items():
+            parameters += f'<{param}>{value}</{param}>'
+
+        request = f'''<?xml version ="1.0" encoding="utf-8"?>
+          <soap:Envelope
+          xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
+          xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          soap:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+            <soap:Body>
+              <{method} xmlns="http://purenetworks.com/HNAP1/">
+                {parameters}
+              </{method}>
+            </soap:Body>
+          </soap:Envelope>
+        '''
+        return request
 
     async def call(self, method, **kwargs):
         xml = self._generate_request_xml(method, **kwargs)
@@ -288,11 +309,11 @@ if __name__ == "__main__":
             print("Supported actions:")
             print("\n".join(client.actions))
         elif cmd == "log":
-            resp = await self.client.call(
+            resp = await client.call(
                 "GetSystemLogs", MaxCount=100, PageOffset=1, StartTime=0, EndTime="All"
             )
             print(resp)
 
-        session.close()
+        await session.close()
 
     loop.run_until_complete(_print_latest_motion())
